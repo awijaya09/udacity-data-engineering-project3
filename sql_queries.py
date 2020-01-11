@@ -57,7 +57,7 @@ staging_songs_table_create = ("""
 
 songplay_table_create = ("""
     CREATE TABLE IF NOT EXISTS songplays (
-        songplay_id IDENTITY(0,1) PRIMARY KEY sortkey,
+        songplay_id int IDENTITY(0,1) PRIMARY KEY sortkey,
         start_time timestamp NOT NULL,
         user_id int NOT NULL,
         level text,
@@ -70,7 +70,7 @@ songplay_table_create = ("""
 
 user_table_create = ("""
     CREATE TABLE IF NOT EXISTS users (
-        user_id IDENTITY(0,1) PRIMARY KEY,
+        user_id int IDENTITY(0,1) PRIMARY KEY,
         first_name text NOT NULL,
         last_name text,
         gender text,
@@ -110,7 +110,7 @@ time_table_create = ("""
 
 staging_events_copy = ("""
     COPY stage_events FROM {}
-    credentials 'aws_iam_role={}'
+    credentials 'aws_iam_role='{}
     region 'us-east-2'
     compupdate off
     JSON {}
@@ -120,10 +120,9 @@ staging_events_copy = ("""
 
 staging_songs_copy = ("""
     COPY stage_songs FROM {}
-    credentials 'aws_iam_role={}'
+    credentials 'aws_iam_role='{}
     region 'us-east-2'
     compupdate off
-    JSON {}
 """).format(config.get('S3', 'SONG_DATA'),
             config.get('IAM_ROLE', 'ARN'))
 
@@ -170,6 +169,7 @@ user_table_insert = ("""
     ON CONFLICT (user_id) DO UPDATE SET level=EXCLUDED.level
 """)
 
+# Inserting the songs data from Staging Songs Table
 song_table_insert = ("""
     INSERT INTO songs (
         song_id,
