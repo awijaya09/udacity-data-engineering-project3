@@ -34,7 +34,7 @@ staging_events_table_create = ("""
         sessionId int,
         song text,
         status int,
-        ts int,
+        ts timestamp,
         userAgent text,
         userId text
     )
@@ -58,7 +58,7 @@ staging_songs_table_create = ("""
 songplay_table_create = ("""
     CREATE TABLE IF NOT EXISTS songplays (
         songplay_id IDENTITY(0,1) PRIMARY KEY sortkey,
-        start_time text NOT NULL,
+        start_time timestamp NOT NULL,
         user_id int NOT NULL,
         level text,
         song_id text,
@@ -97,7 +97,7 @@ artist_table_create = ("""
 
 time_table_create = ("""
     CREATE TABLE IF NOT EXISTS time (
-        start_time text PRIMARY KEY,
+        start_time timestamp PRIMARY KEY,
         hour int,
         day int,
         week int,
@@ -138,21 +138,36 @@ songplay_table_insert = ("""
         artist_id,
         session_id,
         location,
-        user_agent)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        user_agent
+    )
+    SELECT DISCTINCT (
+        e.ts,
+        e.userId,
+        e.level,
+        s.song_id,
+        s.artist_id,
+        e.sessionId,
+        e.location,
+        e.userAgent
+    )
+    FROM stage_songs s, stage_events e
+    WHERE e.page = 'NextSong' AND e.song = s.title
     ON CONFLICT (songplay_id) DO NOTHING
 """)
 
+# Inserting the user data from Staging Event Table
 user_table_insert = ("""
-      INSERT INTO users (
+    INSERT INTO users (
         user_id,
         first_name,
         last_name,
         gender,
         level
     )
-    VALUES (%s, %s, %s, %s, %s)
-    ON CONFLICT (user_id )DO UPDATE SET level=EXCLUDED.level
+    SELECT DISCTINCT userId, firstName, lastName, gender, level
+    FROM stage_songs
+    WHERE page = 'NextSong'
+    ON CONFLICT (user_id) DO UPDATE SET level=EXCLUDED.level
 """)
 
 song_table_insert = ("""
@@ -163,7 +178,13 @@ song_table_insert = ("""
         year,
         duration
     )
-    VALUES (%s, %s, %s, %s, %s)
+    SELECT DISTINCT
+        song_id,
+        title,
+        artist_id,
+        year,
+        duration
+    FROM stage_events
     ON CONFLICT (song_id) DO NOTHING
 """)
 
@@ -175,7 +196,13 @@ artist_table_insert = ("""
         latitude,
         longitude
     )
-    VALUES (%s, %s, %s, %s, %s)
+    SELECT DISTINCT
+        artist_id,
+        artist_name,
+        artist_location,
+        artist_latitude,
+        artist_longitude
+    FROM stage_events
     ON CONFLICT (artist_id) DO NOTHING
 """)
 
@@ -189,7 +216,16 @@ time_table_insert = ("""
         year,
         weekday
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s)
+    SELECT (
+        start_time,
+        EXTRACT(hr from start_time) as hour,
+        EXTRACT(d from start_time) as day,
+        EXTRACT(w from start_time) as week,
+        EXTRACT(mon from start_time) as month,
+        EXTRACT(yr from start_time) as year,
+        EXTRACT(weekday from start_time) as weekday,
+    )
+    FROM stage_events
     ON CONFLICT (start_time) DO NOTHING
 """)
 
